@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Porto Alba — Neon Tide</title>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.min.js" } }
+</script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a0b3d;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* HUD: top-left cluster, top-right minimap, bottom-left stats. */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #banner {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%) translateY(-8px);
+    background: rgba(20, 10, 40, 0.85); border: 1px solid #ffb347; color: #ffd27a;
+    padding: 6px 18px; border-radius: 20px; font-size: 14px; font-weight: 600;
+    opacity: 0; transition: opacity .25s, transform .25s; white-space: nowrap; max-width: 92vw;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  #banner.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #topleft { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 6px; }
+  #healthbar { width: 210px; height: 14px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.4); border-radius: 7px; overflow: hidden; }
+  #health-fill { height: 100%; width: 100%; background: #44dd55; transition: width .2s; }
+  #health-text { font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px #000; }
+  #stars { font-size: 22px; letter-spacing: 2px; color: #ffd27a; text-shadow: 0 0 8px rgba(255,180,60,.8); }
+  #stars.hot { color: #ff4040; animation: pulse .5s infinite alternate; }
+  @keyframes pulse { from { opacity: 1; } to { opacity: .55; } }
+  #objective-chip {
+    background: rgba(20, 10, 40, 0.8); border-left: 4px solid #ffc93c; border-radius: 4px;
+    padding: 7px 10px; max-width: 320px;
+  }
+  #objective { font-size: 14px; font-weight: 700; }
+  #hint { font-size: 12px; color: #ffd27a; margin-top: 2px; }
+  #minimap-wrap { position: absolute; top: 12px; right: 12px; text-align: right; }
+  #minimap { border-radius: 50%; background: rgba(20,16,31,.85); border: 2px solid rgba(255,255,255,.45);
+    box-shadow: 0 0 18px rgba(0,0,0,.6); }
+  #clock { font-size: 20px; font-weight: 800; text-shadow: 0 1px 3px #000; margin-top: 4px; }
+  #wave { font-size: 12px; font-weight: 700; color: #ff9a3c; text-shadow: 0 1px 3px #000; }
+  #bottomleft { position: absolute; left: 12px; bottom: 12px; font-size: 15px; font-weight: 700;
+    text-shadow: 0 1px 3px #000; display: flex; gap: 18px; }
+  #bottomleft span b { color: #ffd27a; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+    display: none; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff;
+    box-shadow: 0 0 4px #000; }
+  #crosshair::before { left: 8px; top: 0; width: 2px; height: 18px; }
+  #crosshair::after { left: 0; top: 8px; width: 18px; height: 2px; }
+  #controls-hint { position: absolute; right: 12px; bottom: 12px; font-size: 11px; color: rgba(255,255,255,.75);
+    text-shadow: 0 1px 2px #000; text-align: right; line-height: 1.5; }
+
+  /* Full screens: start + pause. */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: linear-gradient(180deg, rgba(26,11,61,.88), rgba(255,122,60,.32) 78%, rgba(26,11,61,.88)); }
+  .screen.hidden { display: none; }
+  .screen h1 { font-size: 56px; margin: 0; letter-spacing: 4px; color: #ffd27a;
+    text-shadow: 0 0 24px rgba(255,150,60,.9), 0 2px 0 #000; }
+  .screen h2 { font-size: 20px; margin: 6px 0 18px; color: #ff9a8a; letter-spacing: 6px; font-weight: 600; }
+  .screen p { max-width: 560px; line-height: 1.55; color: #f2e8ff; margin: 6px 0; }
+  .screen .keys { font-size: 13px; color: #cfc4ea; }
+  .screen button {
+    pointer-events: auto; margin-top: 22px; padding: 13px 34px; font-size: 17px; font-weight: 800;
+    color: #1a0b3d; background: #ffc93c; border: none; border-radius: 26px; cursor: pointer;
+    box-shadow: 0 0 22px rgba(255,201,60,.7);
+  }
+  .screen button:hover { background: #ffd76a; }
+  #continue-btn { display: none; background: #14b8a6; color: #06231f; box-shadow: 0 0 22px rgba(20,184,166,.7); }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Porto Alba: an open-world crime game at dusk"></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="banner"></div>
+  <div id="topleft">
+    <div id="healthbar"><div id="health-fill"></div></div>
+    <div id="health-text">100 HP</div>
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="objective-chip">
+      <div id="objective">Meet Marisol at Marisol Pier</div>
+      <div id="hint">Follow the promenade south — the pier lights are gold.</div>
+    </div>
+  </div>
+  <div id="minimap-wrap">
+    <canvas id="minimap" width="168" height="168"></canvas>
+    <div id="clock">17:45</div>
+    <div id="wave">WAVE 1 — Neon Tide</div>
+  </div>
+  <div id="bottomleft">
+    <span id="speed">0 km/h</span>
+    <span>$ <b id="money">250</b></span>
+    <span>Ammo <b id="ammo">12 / 48</b></span>
+  </div>
+  <div id="crosshair"></div>
+  <div id="controls-hint">WASD drive / walk · Shift run · E steal / exit<br>Mouse drag camera · Click shoot · R reload<br>Space handbrake · P pause</div>
+</div>
+
+<div id="start-screen" class="screen">
+  <h1>PORTO ALBA</h1>
+  <h2>— NEON TIDE —</h2>
+  <p>You are <b>Rook</b>, a driver new to the sun-soaked coast. Marisol has work for you —
+     four jobs across the city, from the pier to Café Alba to the warehouse. The tide is
+     coming in, and so are the police. Steal a car, keep the heat down, get paid.</p>
+  <p class="keys">WASD / arrows — drive &amp; walk &nbsp;·&nbsp; Shift — run &nbsp;·&nbsp; E — steal car / get out<br>
+     Mouse drag — camera &nbsp;·&nbsp; Click — shoot &nbsp;·&nbsp; R — reload &nbsp;·&nbsp; Space — handbrake &nbsp;·&nbsp; P — pause</p>
+  <button id="start-btn">Start — New Game</button>
+  <button id="continue-btn">Continue — Saved Game</button>
+</div>
+
+<div id="pause-screen" class="screen hidden">
+  <h1>PAUSED</h1>
+  <p>Porto Alba waits for no one — except right now. Click or press P to keep driving.</p>
+</div>
+
+<script type="module" src="./src/boot.js"></script>
+</body>
+</html>
