@@ -67,3 +67,29 @@ jsDelivr — the kit starter ships no three.js copy).
 - Play-test in desktop Chrome: driving feel, steal flow, police chase
   balance, beacon visibility from distance, pause freeze.
 - Verify `node main.ts` output + dossier once screenshots exist.
+
+## R8 re-shoot (2026-11-21)
+
+Re-shoot ke-4 screenshot untuk witness (submit v6 ditolak server 422
+transcripts_witnessed: 3-chase.jpg + 4-mission.jpg tidak disaksikan).
+Seed 91, satu pass saja — 3-chase tidak deterministik antar pass
+(timing lampu polisi berkedip), pass kedua justru merusak witness.
+Script: shoot-gta6-v6-r6.mjs (v6, entry-v6). sha256 ke-4 screenshot
+dicatat di bawah setelah render.
+
+sha256 (satu pass R8, 2026-11-21 ~01:24 WIB):
+- 1-start.jpg   a1c5b262baeea207a4785d32d59c79accae4299abbffdb777f26a4cbe9ba947e (122,853 B)
+- 2-drive.jpg   4d708423013d8187b027218469b212ae7c2616a1062cd5856aa71358e7e9d7dc (66,192 B)
+- 3-chase.jpg   30a2152c368ae9749184c99acdc6791a22eca4386dd450f8f505318b7764b7ac (67,527 B)
+- 4-mission.jpg 639954f6cc9236ce3d019b910ce8dc9ef753b33b2bed9f3cfa589138e20139a4 (42,501 B)
+
+Verifikasi R8: ke-4 JPG 1280x800, masing-masing <256 KiB;
+__shotReady OK semua, 0 error (page/console/request);
+`node main.ts` 2x ke /tmp → dossier.json byte-identical, output dir
+identik; playthrough v6 (#start-btn, #objective, dst): start jalan,
+HUD benar (Meet Marisol at Marisol Pier, $250, 100 HP, 17:45,
+WAVE 1 — Neon Tide), scene 3D render, 0 error; W menggerakkan
+pemain (playerPos z 10 → 9,4 saat ditahan), jam maju. Catatan:
+di headless swiftshader fps sangat rendah (~1 fps, dt clamp 0,05)
+sehingga pergerakan per 2 detik kecil, dan HUD speed sempat terbaca
+0 km/h saat jalan kaki — artefak headless, bukan blocker.
